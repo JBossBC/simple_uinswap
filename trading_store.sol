@@ -48,7 +48,16 @@ contract Store{
     * 使用k值大概计算滑点损失后我能获得的数量
     */
    function calculateNums(uint112 _medium0Input,uint112 _medium1Input)internal view returns(uint112 _medium0Get,uint112 _medium1Get,uint32 lastTime){
-           require(_medium0Input>0||_medium1Input>0,"please promise you should exchange goods greater than zero");
+           (uint112 tempNums0,uint112 tempNums1)=calculateTokenNumber(_medium0Input,_medium1Input);
+           _medium0Get=uint112(_medium1Input*(tempNums0*10**6/tempNums1)/10**6);
+           _medium1Get=uint112(_medium0Input*(tempNums1*10**6/tempNums0)/10**6);
+           lastTime=blockTimestrampLast;
+   }
+   /**
+       
+   */
+   function calculateTokenNumber(uint112 _medium0Input,uint112 _medium1Input)internal view returns(uint112 _medium0,uint112 _medium1){
+     require( (_medium0Input>0) || (_medium1Input>0),"please promise you should exchange goods greater than zero");
            if(_medium0Input<0){
              _medium0Input=0;
            }  
@@ -61,31 +70,32 @@ contract Store{
            //精度损失造成,但是因为是向下进位，代理商不会损失就行,懒得改
            // 浮点数除法，保留六位小数,扩大分子因子
            uint256 ratio=K*10**6/tempk;
-           uint112 tempNums0=uint112(NewNums0*ratio/10**6);
-           uint112 tempNums1=uint112(K-tempNums0);
-           _medium0Get=uint112(_medium1Input*tempNums0/tempNums1);
-           _medium1Get=uint112(_medium0Input*tempNums1/tempNums0);
-           lastTime=blockTimestrampLast;
-   }
+            _medium0=uint112(NewNums0*ratio/10**6);
+            _medium1=uint112(K-_medium0);
+}
    /**
     用户展示层:滑点预计算
    */
    function slipeCalFromToken0(uint112 _medium0Input)external view returns(uint  ratio){
+     require(_medium0Input<medium0Num,"invaild input");
      //理论获得
      uint112 theoryObtain = uint112((_medium0Input * medium0Num*10**6/medium1Num)/10**6);
      //最终获得,排除手续费
       (,uint112 eventObtain,)= calculateNums(_medium0Input,0);
-        ratio=((theoryObtain-eventObtain)*10**5)/(theoryObtain*10**3);
+            require(theoryObtain-eventObtain>0,"invaild input");
+      ratio=((theoryObtain-eventObtain)*10**6)/(theoryObtain*10**4);
    }
      /**
     用户展示层:滑点预计算用medium1购买medium0
    */
    function slipeCalFromToken1(uint112  _medium1Input)external view returns(uint ratio){
+      require(_medium1Input<medium1Num,"invaild input");
       //理论获得
-     uint112 theoryObtain = uint112((_medium1Input * medium0Num*10**6/medium1Num)/10**6);
+     uint112 theoryObtain = uint112((_medium1Input * medium1Num*10**6/medium0Num)/10**6);
      //最终获得,排除手续费
       (uint112 eventObtain,,)=calculateNums(0,_medium1Input);
-     ratio=((theoryObtain-eventObtain)*10**5)/(theoryObtain*10**3);
+    require(theoryObtain-eventObtain>0,"invaild input");
+     ratio=((theoryObtain-eventObtain)*10**6)/(theoryObtain*10**4);
 
    }
    
@@ -115,6 +125,7 @@ contract Store{
             //用户给钱
             _safeTransaction(medium0,creator,_medium1Input);
           }
+          (medium0Num,medium1Num)=calculateTokenNumber(_medium0Input, _medium1Input);
    }
 
    function swapFromToken0(uint112 _mediumNums0)external{
