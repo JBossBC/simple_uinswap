@@ -12,13 +12,13 @@ contract Store{
    string  medium1Name;
 
    // method selector(调用erc20转账)
-   bytes4 private constant Selector =bytes4(keccak256(bytes("transfer(address,uint256)")));
-
-   uint112 public medium0Num=100000;
-   uint112 public medium1Num=100000;
+   bytes4 private constant SelectorTransfer =bytes4(keccak256(bytes("transfer(address,uint256)")));
+   bytes4 private constant SelectorTransferFrom= bytes4(keccak256(bytes("transferFrom(address from, address to, uint value)")));
+   uint112 public medium0Num=1000;
+   uint112 public medium1Num=1000000000;
    address private creator;
    uint32 private blockTimestrampLast;
-   uint public K=200000;
+   uint public K=1000000000000;
    uint private lock =0;
    event swapEvent(address indexed customer,string tokenType,uint tokenNumber);
    constructor(){
@@ -45,16 +45,7 @@ contract Store{
         _blockTimestrampLast=blockTimestrampLast;
    }
    /**
-    * 使用k值大概计算滑点损失后我能获得的数量
-    */
-   function calculateNums(uint112 _medium0Input,uint112 _medium1Input)internal view returns(uint112 _medium0Get,uint112 _medium1Get,uint32 lastTime){
-           (uint112 tempNums0,uint112 tempNums1)=calculateTokenNumber(_medium0Input,_medium1Input);
-           _medium0Get=uint112(_medium1Input*(tempNums0*10**6/tempNums1)/10**6);
-           _medium1Get=uint112(_medium0Input*(tempNums1*10**6/tempNums0)/10**6);
-           lastTime=blockTimestrampLast;
-   }
-   /**
-       
+            使用k值大概计算滑点损失后我能获得的数量
    */
    function calculateTokenNumber(uint112 _medium0Input,uint112 _medium1Input)internal view returns(uint112 _medium0,uint112 _medium1){
      require( (_medium0Input>0) || (_medium1Input>0),"please promise you should exchange goods greater than zero");
@@ -66,12 +57,10 @@ contract Store{
            }
            uint112 NewNums0=medium0Num+_medium0Input;
            uint112 NewNums1=medium1Num+_medium1Input;
-           uint tempk=NewNums0+NewNums1;
            //精度损失造成,但是因为是向下进位，代理商不会损失就行,懒得改
            // 浮点数除法，保留六位小数,扩大分子因子
-           uint256 ratio=K*10**6/tempk;
-            _medium0=uint112(NewNums0*ratio/10**6);
-            _medium1=uint112(K-_medium0);
+            _medium0=_medium1Input!=0? uint112(NewNums0-K/NewNums1):0;
+            _medium1=_medium0Input!=0? uint112(NewNums1-K/NewNums0):0;
 }
    /**
     用户展示层:滑点预计算
@@ -81,8 +70,8 @@ contract Store{
      //理论获得
      uint112 theoryObtain = uint112((_medium0Input * medium0Num*10**6/medium1Num)/10**6);
      //最终获得,排除手续费
-      (,uint112 eventObtain,)= calculateNums(_medium0Input,0);
-            require(theoryObtain-eventObtain>0,"invaild input");
+      (,uint112 eventObtain)= calculateTokenNumber(_medium0Input,0);
+      require(theoryObtain-eventObtain>=0,"you earning money");
       ratio=((theoryObtain-eventObtain)*10**6)/(theoryObtain*10**4);
    }
      /**
@@ -93,8 +82,7 @@ contract Store{
       //理论获得
      uint112 theoryObtain = uint112((_medium1Input * medium1Num*10**6/medium0Num)/10**6);
      //最终获得,排除手续费
-      (uint112 eventObtain,,)=calculateNums(0,_medium1Input);
-    require(theoryObtain-eventObtain>0,"invaild input");
+      (uint112 eventObtain,)=calculateTokenNumber(0,_medium1Input);
      ratio=((theoryObtain-eventObtain)*10**6)/(theoryObtain*10**4);
 
    }
@@ -106,7 +94,7 @@ contract Store{
    function swap(uint112 _medium0Input,uint112 _medium1Input,address to)internal locked{
           require(_medium0Input>0||_medium1Input>0,"cant valid the transaction params,please prove transaction numbers greater than zero");
           (uint112 _medium0Nums,uint112 _medium1Nums,)=getStoreInfo(); // 节约gas
-          (uint112 _StoreGiven0,uint112 _StoreGiven1,)=calculateNums(_medium0Input, _medium1Input);
+          (uint112 _StoreGiven0,uint112 _StoreGiven1)=calculateTokenNumber(_medium0Input, _medium1Input);
           //确保商店能够支付，同时保证了用户的其中一个输入必须大于0，还节省了gas
           require(_medium0Nums>_StoreGiven0&&_medium1Nums>_StoreGiven1,"store cant process enough goods to trade");        
           //交易token
@@ -116,17 +104,20 @@ contract Store{
             _safeTransaction(medium0, creator,serviceCharge );
             _safeTransaction(medium0, to, _StoreGiven0-serviceCharge);
             //用户给钱
-            _safeTransaction(medium1,creator,_medium0Input);
+            _safeTransferFrom(medium1,msg.sender,creator,_medium0Input);
           }
            if(_StoreGiven1>0){
              uint112 serviceCharge=_StoreGiven1*3/10**3;
             _safeTransaction(medium1, creator,serviceCharge );
             _safeTransaction(medium1, to, _StoreGiven1-serviceCharge);
             //用户给钱
-            _safeTransaction(medium0,creator,_medium1Input);
+            _safeTransferFrom(medium0,msg.sender,creator,_medium1Input);
           }
-          (medium0Num,medium1Num)=calculateTokenNumber(_medium0Input, _medium1Input);
+          medium1Num=medium1Num-_StoreGiven1;
+          medium0Num=medium0Num-_StoreGiven0;   
+          _update(IERC20(medium0).balanceOf(address(this)),IERC20(medium1).balanceOf(address(this)));
    }
+  
 
    function swapFromToken0(uint112 _mediumNums0)external{
       swap(_mediumNums0,0,msg.sender);
@@ -141,9 +132,26 @@ contract Store{
     * 保证不可见,同时降低函数耦合度
     */
    function _safeTransaction(address token,address to,uint value)private{
-         (bool success,bytes memory data) = token.call(abi.encodeWithSelector(Selector, to,value));
+         (bool success,bytes memory data) = token.call(abi.encodeWithSelector(SelectorTransfer, to,value));
          //确保交易正确，同时不会直接panic
          require(success&&(data.length == 0 || abi.decode(data,(bool))),"transaction failed,because the store given error");
+   }
+
+   function _safeTransferFrom(address token,address from,address to ,uint value)private{
+      (bool success,bytes memory data) = token.call(abi.encodeWithSelector(SelectorTransferFrom,from,to,value));
+         //确保交易正确，同时不会直接panic
+         require(success&&(data.length == 0 || abi.decode(data,(bool))),"transaction failed,because the store transferFrom error");
+   }
+   function _update(uint balances0,uint balances1)internal{
+          require(balances0 == uint112(balances0)&& balances1 == uint112(balances1),"store has too much money,spend more");
+          blockTimestrampLast= uint32(block.timestamp);
+          medium0Num=uint112(balances0);
+          medium1Num=uint112(balances1);
+          K=medium1Num*medium0Num;
+
+   }
+   function syncBalance()external locked{
+        _update(IERC20(medium0).balanceOf(address(this)),IERC20(medium1).balanceOf(address(this)));
    }
     
 }
