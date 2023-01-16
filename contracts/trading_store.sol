@@ -14,11 +14,11 @@ contract Store{
    // method selector(调用erc20转账)
    bytes4 private constant SelectorTransfer =bytes4(keccak256(bytes("transfer(address,uint256)")));
    bytes4 private constant SelectorTransferFrom= bytes4(keccak256(bytes("transferFrom(address from, address to, uint value)")));
-   uint112 public medium0Num=1000;
-   uint112 public medium1Num=1000000000;
+   uint112 public medium0Num=50000;
+   uint112 public medium1Num=50000;
    address private creator;
    uint32 private blockTimestrampLast;
-   uint public K=1000000000000;
+   uint public K=2500000000;
    uint private lock =0;
    event swapEvent(address indexed customer,string tokenType,uint tokenNumber);
    constructor(){
@@ -63,7 +63,7 @@ contract Store{
             _medium1=_medium0Input!=0? uint112(NewNums1-K/NewNums0):0;
 }
    /**
-    用户展示层:滑点预计算
+    用户展示层:滑点预计算用medium0购买medium1,保留两位小数
    */
    function slipeCalFromToken0(uint112 _medium0Input)external view returns(uint  ratio){
      require(_medium0Input<medium0Num,"invaild input");
@@ -71,11 +71,11 @@ contract Store{
      uint112 theoryObtain = uint112((_medium0Input * medium0Num*10**6/medium1Num)/10**6);
      //最终获得,排除手续费
       (,uint112 eventObtain)= calculateTokenNumber(_medium0Input,0);
-      require(theoryObtain-eventObtain>=0,"you earning money");
+      require(theoryObtain-eventObtain>=0,"system error");
       ratio=((theoryObtain-eventObtain)*10**6)/(theoryObtain*10**4);
    }
      /**
-    用户展示层:滑点预计算用medium1购买medium0
+    用户展示层:滑点预计算用medium1购买medium0,保留两位小数
    */
    function slipeCalFromToken1(uint112  _medium1Input)external view returns(uint ratio){
       require(_medium1Input<medium1Num,"invaild input");
@@ -118,7 +118,9 @@ contract Store{
           _update(IERC20(medium0).balanceOf(address(this)),IERC20(medium1).balanceOf(address(this)));
    }
   
-
+  /**
+   * 用户展示层:提供交易方法
+   */
    function swapFromToken0(uint112 _mediumNums0)external{
       swap(_mediumNums0,0,msg.sender);
        emit swapEvent(msg.sender,medium0Name,_mediumNums0);
@@ -148,7 +150,6 @@ contract Store{
           medium0Num=uint112(balances0);
           medium1Num=uint112(balances1);
           K=medium1Num*medium0Num;
-
    }
    function syncBalance()external locked{
         _update(IERC20(medium0).balanceOf(address(this)),IERC20(medium1).balanceOf(address(this)));
