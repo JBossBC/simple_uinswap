@@ -4,19 +4,6 @@ const {
 } = require("@nomicfoundation/hardhat-network-helpers");
 const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 const { expect } = require("chai");
-describe("Store",function(){
-  async  function deployReturnResource(){
-    const store= await ethers.getContractFactory("Store");
-    const storeObj= await store.deploy();
-     return {storeObj};
-  }
-  async function calSlipeConsume(){
-    console.log(storeObj.getResource());
-    const INPUT_A = "50";
-    console.log(storeObj.slipeCalFromToken0(INPUT_A));
-    
-  }
-}) 
 describe("Lock", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,

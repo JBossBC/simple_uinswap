@@ -121,12 +121,12 @@ contract Store{
   /**
    * 用户展示层:提供交易方法
    */
-   function swapFromToken0(uint112 _mediumNums0)external{
-      swap(_mediumNums0,0,msg.sender);
+   function swapFromToken0(uint112 _mediumNums0,address to)external{
+      swap(_mediumNums0,0,to);
        emit swapEvent(msg.sender,medium0Name,_mediumNums0);
    }
-   function swapFromToken1(uint112 _medium1Nums)external{
-     swap(0,_medium1Nums,msg.sender);
+   function swapFromToken1(uint112 _medium1Nums,address to)external{
+     swap(0,_medium1Nums,to);
      emit swapEvent(msg.sender,medium1Name,_medium1Nums);
    }
 
