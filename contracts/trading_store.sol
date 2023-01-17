@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import "./util/IERC20.sol";
-
+import "./console.sol";
 contract Store{
     // must match with IERC20 interface
    address private medium0;
@@ -13,12 +13,12 @@ contract Store{
 
    // method selector(调用erc20转账)
    bytes4 private constant SelectorTransfer =bytes4(keccak256(bytes("transfer(address,uint256)")));
-   bytes4 private constant SelectorTransferFrom= bytes4(keccak256(bytes("transferFrom(address from, address to, uint value)")));
-   uint112 public medium0Num=50000;
-   uint112 public medium1Num=50000;
+   bytes4 private constant SelectorTransferFrom= bytes4(keccak256(bytes("transferFrom(address,address,uint256)")));
+   uint112 public medium0Num;
+   uint112 public medium1Num;
    address private creator;
    uint32 private blockTimestrampLast;
-   uint public K=2500000000;
+   uint public K;
    uint private lock =0;
    event swapEvent(address indexed customer,string tokenType,uint tokenNumber);
    constructor(){
@@ -100,21 +100,21 @@ contract Store{
           //交易token
           //user should obtain number =  service charge+actual obtain number
           if(_StoreGiven0>0){
-             uint112 serviceCharge=_StoreGiven0*3/10**3;
-            _safeTransaction(medium0, creator,serviceCharge );
+             uint112 serviceCharge=_StoreGiven0*3/(10**3);
+           _safeTransferFrom(medium0,msg.sender,address(this),serviceCharge);
             _safeTransaction(medium0, to, _StoreGiven0-serviceCharge);
             //用户给钱
-            _safeTransferFrom(medium1,msg.sender,creator,_medium0Input);
+            _safeTransferFrom(medium1,msg.sender,address(this),_medium1Input);
           }
            if(_StoreGiven1>0){
-             uint112 serviceCharge=_StoreGiven1*3/10**3;
-            _safeTransaction(medium1, creator,serviceCharge );
+             uint112 serviceCharge=_StoreGiven1*3/(10**3);
+            _safeTransferFrom(medium1,msg.sender,address(this),serviceCharge);
             _safeTransaction(medium1, to, _StoreGiven1-serviceCharge);
             //用户给钱
-            _safeTransferFrom(medium0,msg.sender,creator,_medium1Input);
+            _safeTransferFrom(medium0,msg.sender,address(this),_medium0Input);
           }
-          medium1Num=medium1Num-_StoreGiven1;
-          medium0Num=medium0Num-_StoreGiven0;   
+          medium1Num=medium1Num-_StoreGiven1+_medium1Input;
+          medium0Num=medium0Num-_StoreGiven0+_medium0Input; 
           _update(IERC20(medium0).balanceOf(address(this)),IERC20(medium1).balanceOf(address(this)));
    }
   
