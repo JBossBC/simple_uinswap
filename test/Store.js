@@ -14,6 +14,8 @@ describe("uniswap Contracts",function(){
     //init token number from store
     let tokenA=50000;
     let tokenB=50000;
+    let IncreaseNumberA=10000;
+    let IncreaseNumberB=10000;
     let K;
     let owner; 
     let store_poolObj;
@@ -107,7 +109,28 @@ describe("uniswap Contracts",function(){
                 expect(sema).true;
             }
         });
- 
+         it("increse liquidity is true",async function(){
+            console.log("initial K is:",K);
+            console.log("increasing liquidity----------------------");
+            let storeAddress =storeByPool[0];
+            let storeContract =await ethers.getContractAt("Store",storeAddress,owner);
+            await ERC20A.mint(storeAddress,IncreaseNumberA);
+            await ERC20B.mint(storeAddress,IncreaseNumberB);
+            let actualNumbersA=await ERC20A.balanceOf(storeAddress)
+            actualNumbersA=actualNumbersA.toNumber();
+            let actualNumbersB=await ERC20B.balanceOf(storeAddress);
+            actualNumbersB=actualNumbersB.toNumber();
+            await storeContract.syncBalance();
+            let remainList = await storeContract.getStoreInfo();
+            let storeA=remainList._medium0Num.toNumber();
+            let storeB=remainList._medium1Num.toNumber(); 
+            tokenA=storeA;
+            tokenB=storeB;
+            K=tokenA*tokenB;
+            expect(actualNumbersA === tokenA && actualNumbersB === tokenB).true
+            console.log("increasing liquidity completely----------------------");
+            console.log("Eventual K is:",K);
+         })
         it("should promise the AMM function true",async function(){
             let swapNumberA= 2000;
             let swapNumberB =2000;
