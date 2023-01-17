@@ -166,7 +166,6 @@ describe("uniswap Contracts",function(){
                 console.error("store A is:",storeA);
                 console.error("store B is",storeB);
                 console.error(err);
-                return;
               }finally{
                 // release the token to owner
                let remainTokenA=await ERC20A.allowance(owner.address,tempStoreAddress);

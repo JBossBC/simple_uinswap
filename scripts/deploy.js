@@ -4,26 +4,40 @@
 // You can also run a script with `npx hardhat run <script>`. If you do that, Hardhat
 // will compile your contracts, add the Hardhat Runtime Environment's members to the
 // global scope, and execute the script.
-const hre = require("hardhat");
+require("hardhat");
+
+// options which are provided for user
+const autoCreateDefaultAMM=true;
+//if the autoCreateDefaultAMM is true ,it can be createdby system
+let optionalAMM;
+
+let TransactionMarket;
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
-  const unlockTime = currentTimestampInSeconds + ONE_YEAR_IN_SECS;
+  //deploy Factory contract
+  const store_pool = await ethers.getContractFactory("storeFactory");
+  TransactionMarket = await store_pool.deploy();
+  await TransactionMarket.deployed();
+  console.log("--------------------Congratulations you create transaction market successfully-------------------")
+  console.log(" Contract address is：     ",TransactionMarket.address)
+  console.log("--------------------------------------------------------------------------------------------------")
+  //deploy two token if user need 
+  if(autoCreateDefaultAMM){
+  let ERC20Facotry = await ethers.getContractFactory("FT");
+  ERC20A = await ERC20Facotry.deploy("tokenA", "xyA");
+  ERC20B = await ERC20Facotry.deploy("tokenB", "xyB");
+  await ERC20A.deployed();
+  await ERC20B.deployed();
+  //create store contract through store factory
+  await TransactionMarket.createStore(ERC20A.address, ERC20B.address);
+  optionalAMM = await TransactionMarket.searchAMM(ERC20A.address, ERC20B.address);
+  console.log("---------------------creating default AMM successfully--------------------------------------------");
+  console.log("Support transaction currency address is:",ERC20A.address,"  ",ERC20B.address);
+  console.log("AMM address is:",optionalAMM)
+  console.log("--------------------------------------------------------------------------------------------------")
 
-  const lockedAmount = hre.ethers.utils.parseEther("1");
 
-  const Lock = await hre.ethers.getContractFactory("Lock");
-  const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
-  await lock.deployed();
-  const store =  await hre.ethers.getContractFactory("Store");
-  const storeObj = await store.deploy({value:hre.ethers.utils.parseEther("1")});
-  await storeObj.deployed();
-
-  console.log(
-    `Lock with 1 ETH and unlock timestamp ${unlockTime} deployed to ${lock.address}`
-  );
-  console.log(`store with 1 ETH deployed to ${storeObj.address}`);
+  }
 }
 
 // We recommend this pattern to be able to use async/await everywhere
